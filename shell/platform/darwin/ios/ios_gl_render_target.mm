@@ -65,6 +65,7 @@ IOSGLRenderTarget::~IOSGLRenderTarget() {
   [EAGLContext setCurrentContext:context_];
   FML_DCHECK(glGetError() == GL_NO_ERROR);
 
+  [EAGLContext setCurrentContext:context_.get()];
   // Deletes on GL_NONEs are ignored
   glDeleteFramebuffers(1, &framebuffer_);
   glDeleteRenderbuffers(1, &colorbuffer_);
