@@ -4,6 +4,8 @@
 
 package io.flutter.embedding.android;
 
+import static android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW;
+
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
@@ -24,8 +26,6 @@ import io.flutter.embedding.engine.dart.DartExecutor;
 import io.flutter.embedding.engine.renderer.OnFirstFrameRenderedListener;
 import io.flutter.plugin.platform.PlatformPlugin;
 import io.flutter.view.FlutterMain;
-
-import static android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW;
 
 /**
  * {@code Fragment} which displays a Flutter UI that takes up all available {@code Fragment} space.
@@ -228,7 +228,7 @@ public class FlutterFragment extends Fragment {
     public <T extends FlutterFragment> T build() {
       try {
         @SuppressWarnings("unchecked")
-        T frag = (T) fragmentClass.newInstance();
+        T frag = (T) fragmentClass.getDeclaredConstructor().newInstance();
         if (frag == null) {
           throw new RuntimeException("The FlutterFragment subclass sent in the constructor ("
               + fragmentClass.getCanonicalName() + ") does not match the expected return type.");
@@ -378,25 +378,6 @@ public class FlutterFragment extends Fragment {
   public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
     flutterView = new FlutterView(getContext(), getRenderMode(), getTransparencyMode());
     flutterView.addOnFirstFrameRenderedListener(onFirstFrameRenderedListener);
-
-    // We post() the code that attaches the FlutterEngine to our FlutterView because there is
-    // some kind of blocking logic on the native side when the surface is connected. That lag
-    // causes launching Activitys to wait a second or two before launching. By post()'ing this
-    // behavior we are able to move this blocking logic to after the Activity's launch.
-    // TODO(mattcarroll): figure out how to avoid blocking the MAIN thread when connecting a surface
-    new Handler().post(new Runnable() {
-      @Override
-      public void run() {
-        flutterView.attachToFlutterEngine(flutterEngine);
-
-        // TODO(mattcarroll): the following call should exist here, but the plugin system needs to be revamped.
-        //                    The existing attach() method does not know how to handle this kind of FlutterView.
-        //flutterEngine.getPluginRegistry().attach(this, getActivity());
-
-        doInitialFlutterViewRun();
-      }
-    });
-
     return flutterView;
   }
 
@@ -487,8 +468,33 @@ public class FlutterFragment extends Fragment {
   }
 
   @Override
+  public void onStart() {
+    super.onStart();
+    Log.d(TAG, "onStart()");
+
+    // We post() the code that attaches the FlutterEngine to our FlutterView because there is
+    // some kind of blocking logic on the native side when the surface is connected. That lag
+    // causes launching Activitys to wait a second or two before launching. By post()'ing this
+    // behavior we are able to move this blocking logic to after the Activity's launch.
+    // TODO(mattcarroll): figure out how to avoid blocking the MAIN thread when connecting a surface
+    new Handler().post(new Runnable() {
+      @Override
+      public void run() {
+        flutterView.attachToFlutterEngine(flutterEngine);
+
+        // TODO(mattcarroll): the following call should exist here, but the plugin system needs to be revamped.
+        //                    The existing attach() method does not know how to handle this kind of FlutterView.
+        //flutterEngine.getPluginRegistry().attach(this, getActivity());
+
+        doInitialFlutterViewRun();
+      }
+    });
+  }
+
+  @Override
   public void onResume() {
     super.onResume();
+    Log.d(TAG, "onResume()");
     flutterEngine.getLifecycleChannel().appIsResumed();
   }
 
@@ -517,6 +523,7 @@ public class FlutterFragment extends Fragment {
     super.onStop();
     Log.d(TAG, "onStop()");
     flutterEngine.getLifecycleChannel().appIsPaused();
+    flutterView.detachFromFlutterEngine();
   }
 
   @Override
@@ -524,7 +531,6 @@ public class FlutterFragment extends Fragment {
     super.onDestroyView();
     Log.d(TAG, "onDestroyView()");
     flutterView.removeOnFirstFrameRenderedListener(onFirstFrameRenderedListener);
-    flutterView.detachFromFlutterEngine();
   }
 
   @Override
