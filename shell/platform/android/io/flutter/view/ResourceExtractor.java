@@ -17,7 +17,6 @@ import android.support.annotation.WorkerThread;
 import android.util.Log;
 
 import io.flutter.BuildConfig;
-import io.flutter.util.BSDiff;
 import io.flutter.util.PathUtils;
 
 import org.json.JSONObject;
@@ -172,7 +171,7 @@ class ResourceExtractor {
 
     ResourceExtractor start() {
         if (BuildConfig.DEBUG && mExtractTask != null) {
-            throw new AssertionError("Attempted to start resource extraction while another extraction was in progress.");
+            Log.e(TAG, "Attempted to start resource extraction while another extraction was in progress.");
         }
         mExtractTask = new ExtractTask(mDataDirPath, mResources, mPackageName, mPackageManager, mAssetManager);
         mExtractTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);

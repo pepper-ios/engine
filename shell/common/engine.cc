@@ -33,6 +33,7 @@ static constexpr char kLifecycleChannel[] = "flutter/lifecycle";
 static constexpr char kNavigationChannel[] = "flutter/navigation";
 static constexpr char kLocalizationChannel[] = "flutter/localization";
 static constexpr char kSettingsChannel[] = "flutter/settings";
+static constexpr char kIsolateChannel[] = "flutter/isolate";
 
 Engine::Engine(Delegate& delegate,
                DartVM& vm,
@@ -145,6 +146,14 @@ Engine::RunStatus Engine::Run(RunConfiguration configuration) {
       isolate->AddIsolateShutdownCallback(
           settings_.root_isolate_shutdown_callback);
     }
+
+    std::string service_id = isolate->GetServiceId();
+    fml::RefPtr<PlatformMessage> service_id_message =
+        fml::MakeRefCounted<flutter::PlatformMessage>(
+            kIsolateChannel,
+            std::vector<uint8_t>(service_id.begin(), service_id.end()),
+            nullptr);
+    HandlePlatformMessage(service_id_message);
   }
 
   return isolate_running ? Engine::RunStatus::Success
@@ -199,6 +208,11 @@ Engine::RunStatus Engine::PrepareAndLaunchIsolate(
 void Engine::BeginFrame(fml::TimePoint frame_time) {
   TRACE_EVENT0("flutter", "Engine::BeginFrame");
   runtime_controller_->BeginFrame(frame_time);
+}
+
+void Engine::ReportTimings(std::vector<int64_t> timings) {
+  TRACE_EVENT0("flutter", "Engine::ReportTimings");
+  runtime_controller_->ReportTimings(std::move(timings));
 }
 
 void Engine::NotifyIdle(int64_t deadline) {
@@ -430,6 +444,10 @@ void Engine::HandlePlatformMessage(fml::RefPtr<PlatformMessage> message) {
 void Engine::UpdateIsolateDescription(const std::string isolate_name,
                                       int64_t isolate_port) {
   delegate_.UpdateIsolateDescription(isolate_name, isolate_port);
+}
+
+void Engine::SetNeedsReportTimings(bool value) {
+  delegate_.SetNeedsReportTimings(value);
 }
 
 FontCollection& Engine::GetFontCollection() {

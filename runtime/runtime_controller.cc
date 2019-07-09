@@ -100,7 +100,7 @@ RuntimeController::RuntimeController(
     tonic::DartState::Scope scope(strong_root_isolate);
     window->DidCreateIsolate();
     if (!FlushRuntimeStateToIsolate()) {
-      FML_DLOG(ERROR) << "Could not setup intial isolate state.";
+      FML_DLOG(ERROR) << "Could not setup initial isolate state.";
     }
   } else {
     FML_DCHECK(false) << "RuntimeController created without window binding.";
@@ -231,6 +231,14 @@ bool RuntimeController::BeginFrame(fml::TimePoint frame_time) {
   return false;
 }
 
+bool RuntimeController::ReportTimings(std::vector<int64_t> timings) {
+  if (auto* window = GetWindowIfAvailable()) {
+    window->ReportTimings(std::move(timings));
+    return true;
+  }
+  return false;
+}
+
 bool RuntimeController::NotifyIdle(int64_t deadline) {
   std::shared_ptr<DartIsolate> root_isolate = root_isolate_.lock();
   if (!root_isolate) {
@@ -318,6 +326,10 @@ FontCollection& RuntimeController::GetFontCollection() {
 void RuntimeController::UpdateIsolateDescription(const std::string isolate_name,
                                                  int64_t isolate_port) {
   client_.UpdateIsolateDescription(isolate_name, isolate_port);
+}
+
+void RuntimeController::SetNeedsReportTimings(bool value) {
+  client_.SetNeedsReportTimings(value);
 }
 
 Dart_Port RuntimeController::GetMainPort() {
